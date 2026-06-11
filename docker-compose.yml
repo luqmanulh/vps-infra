@@ -1,0 +1,72 @@
+services:
+  traefik:
+    image: traefik:v3.7
+    container_name: traefik
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik/acme.json:/letsencrypt/acme.json
+    command:
+      - "--configFile=/etc/traefik/traefik.yml"
+      - "--certificatesresolvers.letsencrypt.acme.email=${LETSENCRYPT_EMAIL}"
+
+  forgejo:
+    image: data.forgejo.org/forgejo/forgejo:15
+    container_name: forgejo
+    restart: always
+    environment:
+      - USER_UID=1000
+      - USER_GID=1000
+      - FORGEJO__server__DOMAIN=${FORGEJO_HOST}
+      - FORGEJO__server__ROOT_URL=https://${FORGEJO_HOST}
+      - FORGEJO__server__SSH_DOMAIN=${FORGEJO_HOST}
+      - FORGEJO__server__SSH_PORT=${FORGEJO_SSH_PORT}
+    ports:
+      - "${FORGEJO_SSH_PORT}:22"
+    volumes:
+      - ./forgejo/data:/data
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.forgejo.rule=Host(`${FORGEJO_HOST}`)"
+      - "traefik.http.routers.forgejo.entrypoints=websecure"
+      - "traefik.http.routers.forgejo.tls.certresolver=letsencrypt"
+      - "traefik.http.services.forgejo.loadbalancer.server.port=3000"
+  uptime-kuma:
+    image: louislam/uptime-kuma:2
+    container_name: uptime-kuma
+    restart: unless-stopped
+    volumes:
+      - ./uptime-kuma/data:/app/data
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.uptime-kuma.rule=Host(`${UPTIME_KUMA_HOST}`)"
+      - "traefik.http.routers.uptime-kuma.entrypoints=websecure"
+      - "traefik.http.routers.uptime-kuma.tls.certresolver=letsencrypt"
+      - "traefik.http.services.uptime-kuma.loadbalancer.server.port=3001"
+  docker-in-docker:
+    image: docker:dind
+    container_name: docker_dind
+    privileged: true
+    command: ["dockerd", "-H", "tcp://0.0.0.0:2375", "--tls=false"]
+    restart: unless-stopped
+    
+  actions-runner:
+    image: data.forgejo.org/forgejo/runner:12
+    container_name: actions-runner
+    depends_on:
+      docker-in-docker:
+        condition: service_started
+    environment:
+      - DOCKER_HOST=tcp://docker-in-docker:2375
+    user: "1001:1001"
+    volumes:
+      - ./actions-runner/data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+    command: "forgejo-runner daemon --config /data/runner-config.yml"

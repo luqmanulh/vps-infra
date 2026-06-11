@@ -1,0 +1,29 @@
+# Secrets and environment files
+.env
+*.env
+.env.local
+.env.*.local
+
+# Sensitive data directories
+**/data/
+**/log/
+**/logs/
+*.pem
+*.key
+*.crt
+acme.json
+
+# Docker
+**/__pycache__/
+*.pyc
+.pytest_cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

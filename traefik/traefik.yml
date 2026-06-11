@@ -16,6 +16,8 @@ providers:
 certificatesResolvers:
   letsencrypt:
     acme:
+      # Email is provided via CLI argument in docker-compose.yml: --certificatesresolvers.letsencrypt.acme.email=${LETSENCRYPT_EMAIL}
+      # This is required for Let's Encrypt registration and certificate renewal notifications
       storage: /letsencrypt/acme.json
       httpChallenge:
         entryPoint: web

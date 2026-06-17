@@ -1,13 +1,8 @@
 entryPoints:
   web:
-    address: ":80"
-    http:
-      redirections:
-        entryPoint:
-          to: websecure
-          scheme: https
+    address: ':80'
   websecure:
-    address: ":443"
+    address: ':443'
 
 providers:
   docker:
@@ -16,8 +11,14 @@ providers:
 certificatesResolvers:
   letsencrypt:
     acme:
-      # Email is provided via CLI argument in docker-compose.yml: --certificatesresolvers.letsencrypt.acme.email=${LETSENCRYPT_EMAIL}
-      # This is required for Let's Encrypt registration and certificate renewal notifications
       storage: /letsencrypt/acme.json
       httpChallenge:
         entryPoint: web
+
+# Middleware to redirect HTTP to HTTPS
+http:
+  middlewares:
+    redirect-to-https:
+      redirectScheme:
+        scheme: https
+        permanent: true

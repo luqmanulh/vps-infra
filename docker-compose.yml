@@ -13,6 +13,8 @@ services:
     command:
       - "--configFile=/etc/traefik/traefik.yml"
       - "--certificatesresolvers.letsencrypt.acme.email=${LETSENCRYPT_EMAIL}"
+    networks:
+      - traefik-net
 
   forgejo:
     image: data.forgejo.org/forgejo/forgejo:15
@@ -31,31 +33,27 @@ services:
       - ./forgejo/data:/data
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.forgejo.rule=Host(`${FORGEJO_HOST}`)"
-      - "traefik.http.routers.forgejo.entrypoints=websecure"
-      - "traefik.http.routers.forgejo.tls.certresolver=letsencrypt"
-      - "traefik.http.services.forgejo.loadbalancer.server.port=3000"
+    networks:
+      - traefik-net
+
   uptime-kuma:
     image: louislam/uptime-kuma:2
     container_name: uptime-kuma
     restart: unless-stopped
     volumes:
       - ./uptime-kuma/data:/app/data
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.uptime-kuma.rule=Host(`${UPTIME_KUMA_HOST}`)"
-      - "traefik.http.routers.uptime-kuma.entrypoints=websecure"
-      - "traefik.http.routers.uptime-kuma.tls.certresolver=letsencrypt"
-      - "traefik.http.services.uptime-kuma.loadbalancer.server.port=3001"
+    networks:
+      - traefik-net
+
   docker-in-docker:
     image: docker:dind
     container_name: docker_dind
     privileged: true
     command: ["dockerd", "-H", "tcp://0.0.0.0:2375", "--tls=false"]
     restart: unless-stopped
-    
+    networks:
+      - traefik-net
+
   actions-runner:
     image: data.forgejo.org/forgejo/runner:12
     container_name: actions-runner
@@ -70,3 +68,10 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
     command: "forgejo-runner daemon --config /data/runner-config.yml"
+    networks:
+      - traefik-net
+
+networks:
+  traefik-net:
+    external: true
+    name: traefik-net

@@ -35,6 +35,13 @@ services:
       - /etc/localtime:/etc/localtime:ro
     networks:
       - traefik-net
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.forgejo.rule=Host(`${FORGEJO_HOST}`)"
+      - "traefik.http.routers.forgejo.entrypoints=websecure"
+      - "traefik.http.routers.forgejo.tls.certresolver=letsencrypt"
+      - "traefik.http.services.forgejo.loadbalancer.server.port=3000"
+      - "traefik.docker.network=traefik-net"
 
   uptime-kuma:
     image: louislam/uptime-kuma:2

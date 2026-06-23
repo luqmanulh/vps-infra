@@ -63,23 +63,27 @@ services:
     image: docker:dind
     container_name: docker_dind
     privileged: true
-    command: ["dockerd", "-H", "tcp://0.0.0.0:2375", "--tls=false"]
+    command: ["dockerd", "-H", "tcp://127.0.0.1:2375", "--tls=false"]
     restart: unless-stopped
     networks:
       - traefik-net
+    healthcheck:
+      test: ["CMD", "docker", "info"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   actions-runner:
     image: data.forgejo.org/forgejo/runner:12
     container_name: actions-runner
     depends_on:
       docker-in-docker:
-        condition: service_started
+        condition: service_healthy
     environment:
       - DOCKER_HOST=tcp://docker-in-docker:2375
     user: "1001:1001"
     volumes:
       - ./actions-runner/data:/data
-      - /var/run/docker.sock:/var/run/docker.sock
     restart: unless-stopped
     command: "forgejo-runner daemon --config /data/runner-config.yml"
     networks:
@@ -93,11 +97,11 @@ services:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
-      - '--web.enable-lifecycle'
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/etc/prometheus/console_libraries"
+      - "--web.console.templates=/etc/prometheus/consoles"
+      - "--web.enable-lifecycle"
     networks:
       - traefik-net
 
@@ -130,10 +134,10 @@ services:
       - /sys:/host/sys:ro
       - /:/rootfs:ro
     command:
-      - '--path.procfs=/host/proc'
-      - '--path.rootfs=/rootfs'
-      - '--path.sysfs=/host/sys'
-      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+      - "--path.procfs=/host/proc"
+      - "--path.rootfs=/rootfs"
+      - "--path.sysfs=/host/sys"
+      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
     networks:
       - traefik-net
 

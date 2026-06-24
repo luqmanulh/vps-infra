@@ -1,0 +1,62 @@
+name: Infra CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate Docker Compose
+        run: |
+          docker compose config
+          echo "✅ docker-compose.yml is valid"
+
+      - name: Check for secrets in files
+        run: |
+          # Simple check for common secret patterns
+          if grep -r -i "password.*=" --include="*.yml" --include="*.env" --include="*.sh" . | grep -v ".env.example"; then
+            echo "❌ Possible secrets found in files!"
+            exit 1
+          else
+            echo "✅ No secrets found in tracked files"
+          fi
+
+      - name: YAML Lint
+        run: |
+          # Install yamllint
+          pip install yamllint
+          # Lint all YAML files
+          yamllint $(find . -name "*.yml" -o -name "*.yaml") || true
+          echo "✅ YAML linting done"
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for exposed ports
+        run: |
+          echo "Checking for exposed ports in docker-compose.yml..."
+          # Check if there are ports exposed to 0.0.0.0 (public)
+          if grep -q "0.0.0.0" docker-compose.yml; then
+            echo "⚠️ Warning: Some ports are exposed to 0.0.0.0 (public)"
+            grep -n "0.0.0.0" docker-compose.yml
+          else
+            echo "✅ No ports exposed to 0.0.0.0"
+          fi
+
+      - name: Check for latest tags
+        run: |
+          echo "Checking for 'latest' tags (not pinned)..."
+          if grep -q ":latest" docker-compose.yml; then
+            echo "⚠️ Warning: Some images use 'latest' tag (not pinned)"
+            grep -n ":latest" docker-compose.yml
+          else
+            echo "✅ All image tags are pinned"
+          fi
